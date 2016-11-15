@@ -1,0 +1,193 @@
+<?php
+
+/**
+ * @file
+ * The module extends the DKAN Harvester and allow the CKAN API harvesting.
+ */
+
+/**
+ * Implements hook_harvest_source_types().
+ */
+function dkan_harvest_ckan_harvest_source_types() {
+
+  return array(
+    'harvest_ckan' => array(
+      'machine_name' => 'harvest_ckan',
+      'label' => 'CKAN - (alpha)',
+      'cache callback' => '_dkan_harvest_ckan_cache',
+      'migration class' => 'HarvestMigrationCKAN',
+    ),
+        /*
+        'harvest_ckan_alt' => array(
+            'machine_name' => 'harvest_ckan_alt',
+            'label' => 'CKAN - DKAN migrate test (sperimentale)',
+            'cache callback' => 'dkan_harvest_cache_default',
+            'migration class' => 'MigrateCkanDatasetBase',
+        ),*/
+  );
+}
+
+/**
+ * Get the cache from CKAN.
+ *
+ * The endpoint should be
+ *    {CKAN-URL}/api/3/actions/current_package_list_with_resources.
+ *
+ * @param HarvestSource $source The source.
+ * @param $harvest_updatetime The last uptime.
+ *
+ * @return HarvestCache
+ */
+function _dkan_harvest_ckan_cache(HarvestSource $source, $harvest_updatetime) {
+
+  // This is needed for remote uri.
+  $context = stream_context_create(
+            array(
+              'http' => array(
+                'timeout' => 600000,
+              ),
+              'https' => array(
+                'timeout' => 600000,
+              ),
+            )
+    );
+
+  $remote = @file_get_contents($source->uri, 0, $context);
+
+  if ($remote) {
+    $data = drupal_json_decode($remote);
+
+    // Filter and save the data gathered from the endpoint.
+    if ($data) {
+      $v = _dkan_harvest_ckan_cache_json($data, $source, $harvest_updatetime);
+      return $v;
+    }
+  }
+}
+
+/**
+ * Cache the ckan_json datasets.
+ *
+ * @param array $data
+ * @param HarvestSource $source
+ * @param $harvest_updatetime
+ *
+ * @return HarvestCache
+ */
+function _dkan_harvest_ckan_cache_json(array $data, HarvestSource $source, $harvest_updatetime) {
+
+  $harvestCache = new HarvestCache($source, $harvest_updatetime);
+
+  $datasets = $data['result'];
+
+  // Filter datasets, only allow datasets that have the filters value.
+  $filters = $source->filters;
+
+  if (!empty($filters)) {
+    $datasets = array_filter($datasets, function ($dataset) use ($filters, &$harvestCache) {
+      $dataset_key = $dataset['id'];
+      // Default action is to DROP the dataset if it does not meet the
+      // filtering criteria.
+      $accept = FALSE;
+      foreach ($filters as $filter => $value) {
+        if (!empty($dataset[$filter]) && !empty($value) && count(array_intersect((array) $value, (array) $dataset[$filter])) > 0) {
+          // The value to filter is an array and does intersect with the
+          // dataset value. ACCEPT.
+          $accept = TRUE;
+        }
+        if ($accept) {
+          // Dataset have at least one filter that match. No need for more
+          // proccecing.
+          break;
+        }
+      }
+
+      if ($accept) {
+        // Update the cache result object.
+        $harvestCache->setCacheEntryFiltered($dataset_key, $dataset['title']);
+      }
+      else {
+        // This dataset will be dropped from here on. Add to the processed count.
+        $harvestCache->setCacheEntryProcessed($dataset_key, $dataset['title']);
+      }
+      // Drop the dataset if excluded.
+      return $accept;
+    });
+  }
+
+  // Exclude datasets, drop datasets that have the excludes value.
+  $excludes = $source->excludes;
+  
+  if (!empty($excludes)) {
+    $datasets = array_filter($datasets, function ($dataset) use ($excludes, &$harvestCache) {
+      $dataset_key = $dataset['id'];
+      // Default action is to accept dataset that does not meet the
+      // excluding criteria.
+      $accept = TRUE;
+      foreach ($excludes as $exclude => $value) {
+        
+        dsm($exclude);
+        
+        if (!empty($dataset[$exclude]) && count(array_intersect((array) $value, (array) $dataset[$exclude])) > 0) {
+          // The value to exclude is an array and does intersect with the dataset value. Drop.
+          $accept = FALSE;
+        }
+
+        if (!$accept) {
+          // Dataset have at least one exclude criterion that matchs. No need for more
+          // proccecing.
+          break;
+        }
+      }
+
+      if (!$accept) {
+        // Update the cache result object.
+        // This dataset will be dropped from here on. Add to the processed
+        // count.
+        $harvestCache->setCacheEntryExcluded($dataset_key, $dataset['title']);
+      }
+
+      // Drop the dataset if excluded.
+      return $accept;
+    });
+  }
+
+  // Override field values.
+  $overrides = $source->overrides;
+  $datasets = array_map(function ($dataset) use ($overrides, &$harvestCache) {
+    foreach ($overrides as $override => $value) {
+      $dataset[$override] = $value[0];
+    }
+    return $dataset;
+  }, $datasets);
+
+  // Set default values for empty fields.
+  $defaults = $source->defaults;
+  $datasets = array_map(function ($dataset) use ($defaults, &$harvestCache) {
+    foreach ($defaults as $default => $value) {
+      if (!isset($dataset[$default])) {
+          $dataset[$default] = $value[0];
+      }
+    }
+      return $dataset;
+  }, $datasets);
+
+  // TODO add defaults and overriddes?
+  foreach ($datasets as $dataset) {
+
+    $identifier = $dataset['id'];
+    $dataset_file = implode('/', array($source->getCacheDir(), $identifier));
+    $data = drupal_json_encode($dataset);
+    $cached = @file_put_contents($dataset_file, $data);
+
+    if (!$cached) {
+      $harvestCache->setCacheEntryFailed($identifier, $dataset['title']);
+    }
+    else {
+      // This will reset the failed flag if previously set.
+      $harvestCache->setCacheEntryProcessed($identifier, $dataset['title']);
+    }
+  }
+
+  return $harvestCache;
+}
