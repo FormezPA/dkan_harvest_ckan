@@ -13,7 +13,7 @@ function dkan_harvest_ckan_harvest_source_types() {
   return array(
     'harvest_ckan' => array(
       'machine_name' => 'harvest_ckan',
-      'label' => 'CKAN - (alpha)',
+      'label' => 'CKAN (JSON full catalog)',
       'cache callback' => '_dkan_harvest_ckan_cache',
       'migration class' => 'HarvestMigrationCKAN',
     ),
