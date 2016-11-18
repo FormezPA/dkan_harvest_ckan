@@ -4,13 +4,13 @@
  * @file dkan_harvest_ckan.migrate.inc
  *
  * Migration File for DKAN Harvest of CKAN file from
- *    /api/3/action/current_package_list_with_resources .
+ *    /api/3/action/current_package_list_with_resources.
  */
 
 /**
  * Class HarvestMigrationCKAN.
  *
- * Harvest the CKAN API on /api/3/action/current_package_list_with_resources
+ * Harvest the CKAN API on /api/3/action/current_package_list_with_resources.
  */
 class HarvestMigrationCKAN extends HarvestMigration {
 
@@ -35,7 +35,7 @@ class HarvestMigrationCKAN extends HarvestMigration {
   /**
    * {@inheritdoc}
    */
-  public function setFieldMappings($version = '1.1') {
+  public function setFieldMappings($version = '') {
     parent::setFieldMappings();
 
     $this->addFieldMapping('uuid', 'id');
@@ -48,52 +48,9 @@ class HarvestMigrationCKAN extends HarvestMigration {
     $this->addFieldMapping('field_language')->defaultValue('it');
     $this->addFieldMapping('field_public_access_level', 'private');
     $this->addFieldMapping('body', 'notes');
+    $this->addFieldMapping('field_additional_info', 'additional_info_keys');
+    $this->addFieldMapping('field_additional_info:second', 'additional_info_values')->defaultValue('');
 
-    /*
-
-
-    $this->addFieldMapping('field_contact_name', 'contactPointName');
-    $this->addFieldMapping('field_contact_email', 'mbox');
-
-    $this->addFieldMapping('field_license', 'license');
-    $this->addFieldMapping('field_spatial_geographical_cover', 'spatial');
-    $this->addFieldMapping('field_temporal_coverage', 'temporalBegin');
-    $this->addFieldMapping('field_temporal_coverage:to', 'temporalEnd');
-    $this->addFieldMapping('field_frequency', 'accrualPeriodicity');
-    $this->addFieldMapping('field_data_dictionary', 'describedBy');
-    if ($version == '1.0') {
-    $this->addFieldMapping('field_data_dictionary', 'dataDictionary');
-    $this->addFieldMapping('language', 'language');
-    }
-    else {
-    // POD 1.1.
-    $this->addFieldMapping('field_related_content', 'references');
-    }
-    if (module_exists('open_data_federal_extras')) {
-    $this->addFieldMapping('field_odfe_bureau_code', 'bureauCode');
-    $this->addFieldMapping('field_odfe_program_code', 'programCode');
-    $this->addFieldMapping('field_odfe_landing_page', 'landingPage');
-    $this->addFieldMapping('field_odfe_rights', 'rights');
-    $this->addFieldMapping('field_odfe_conforms_to', 'conformsTo');
-    $this->addFieldMapping('field_odfe_data_quality', 'dataQuality');
-    $this->addFieldMapping('field_odfe_data_dictionary_type', 
-    'describedByType');
-    $this->addFieldMapping('field_odfe_is_part_of', 'isPartOf');
-    $this->addFieldMapping('field_odfe_language', 'language');
-    $this->addFieldMapping('field_odfe_investment_uii', 
-    'primaryITInvestmentUII');
-    $this->addFieldMapping('field_odfe_system_of_records', 'systemOfRecords');
-
-    $this->addFieldMapping('field_odfe_category', 'theme');
-    $this->addFieldMapping('field_odfe_category:create_term')
-    ->defaultValue(TRUE);
-    }
-    // dkan_dataset_metadata_source.
-    if (module_exists('dkan_dataset_metadata_source')) {
-    $this->addFieldMapping('field_metadata_sources', 'metadata_sources');
-    }
-
-     */
   }
 
   /**
@@ -151,10 +108,25 @@ class HarvestMigrationCKAN extends HarvestMigration {
       $row->_tags[] = (isset($tag->name)) ? $tag->name : $tag;
     }
 
+    $row->additional_info_keys = array();
+    $row->additional_info_values = array();
+
+    if (isset($row->extras) && is_array($row->extras) && count($row->extras) > 0) {
+      foreach ($row->extras as $extra) {
+        if ($extra->value != '') {
+          $row->additional_info_keys[] = $extra->key;
+          $row->additional_info_values[] = $extra->value;
+        }
+      }
+    }
+    else {
+      unset($row->additional_info_keys);
+      unset($row->additional_info_values);
+    }
   }
 
   /**
-   *
+   * Implements prepare().
    */
   public function prepare($dataset_prepare, $row) {
     parent::prepare($dataset_prepare, $row);
@@ -169,9 +141,11 @@ class HarvestMigrationCKAN extends HarvestMigration {
   /**
    * Prepare list of resources that need to be imported based on the row data.
    *
-   * @param $resources_row_data Resources data present on row.
+   * @param object $resources_row_data
+   *   Resources data present on row.
    *
-   * @return An array with all resources data ready to be imported or empty if
+   * @return array
+   *   An array with all resources data ready to be imported or empty if
    *   no resources where found.
    */
   public function prepareRowResources($resources_row_data) {
@@ -194,9 +168,11 @@ class HarvestMigrationCKAN extends HarvestMigration {
   /**
    * Prepare group that needs to be imported based on the row data.
    *
-   * @param $group_row_data Group data present on row.
+   * @param object $group_row_data
+   *   Group data present on row.
    *
-   * @return An object value with the group data needed to import the group.
+   * @return object
+   *   An object value with the group data needed to import the group.
    */
   public function prepareRowGroup($group_row_data) {
 

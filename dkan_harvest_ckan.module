@@ -17,13 +17,6 @@ function dkan_harvest_ckan_harvest_source_types() {
       'cache callback' => '_dkan_harvest_ckan_cache',
       'migration class' => 'HarvestMigrationCKAN',
     ),
-        /*
-        'harvest_ckan_alt' => array(
-            'machine_name' => 'harvest_ckan_alt',
-            'label' => 'CKAN - DKAN migrate test (sperimentale)',
-            'cache callback' => 'dkan_harvest_cache_default',
-            'migration class' => 'MigrateCkanDatasetBase',
-        ),*/
   );
 }
 
@@ -33,10 +26,13 @@ function dkan_harvest_ckan_harvest_source_types() {
  * The endpoint should be
  *    {CKAN-URL}/api/3/actions/current_package_list_with_resources.
  *
- * @param HarvestSource $source The source.
- * @param $harvest_updatetime The last uptime.
+ * @param HarvestSource $source
+ *   The source.
+ * @param int $harvest_updatetime
+ *   The last uptime.
  *
  * @return HarvestCache
+ *   The object HarvestCache.
  */
 function _dkan_harvest_ckan_cache(HarvestSource $source, $harvest_updatetime) {
 
@@ -44,10 +40,10 @@ function _dkan_harvest_ckan_cache(HarvestSource $source, $harvest_updatetime) {
   $context = stream_context_create(
             array(
               'http' => array(
-                'timeout' => 600000,
+                'timeout' => 36000,
               ),
               'https' => array(
-                'timeout' => 600000,
+                'timeout' => 36000,
               ),
             )
     );
@@ -69,10 +65,14 @@ function _dkan_harvest_ckan_cache(HarvestSource $source, $harvest_updatetime) {
  * Cache the ckan_json datasets.
  *
  * @param array $data
+ *   The parsed data from remote url.
  * @param HarvestSource $source
- * @param $harvest_updatetime
+ *   Object of type HarvestSource.
+ * @param int $harvest_updatetime
+ *    The unix timestamp of the update time.
  *
  * @return HarvestCache
+ *    The object HarvestCache.
  */
 function _dkan_harvest_ckan_cache_json(array $data, HarvestSource $source, $harvest_updatetime) {
 
@@ -107,7 +107,8 @@ function _dkan_harvest_ckan_cache_json(array $data, HarvestSource $source, $harv
         $harvestCache->setCacheEntryFiltered($dataset_key, $dataset['title']);
       }
       else {
-        // This dataset will be dropped from here on. Add to the processed count.
+        // This dataset will be dropped from here on.
+        // Add to the processed count.
         $harvestCache->setCacheEntryProcessed($dataset_key, $dataset['title']);
       }
       // Drop the dataset if excluded.
@@ -117,7 +118,7 @@ function _dkan_harvest_ckan_cache_json(array $data, HarvestSource $source, $harv
 
   // Exclude datasets, drop datasets that have the excludes value.
   $excludes = $source->excludes;
-  
+
   if (!empty($excludes)) {
     $datasets = array_filter($datasets, function ($dataset) use ($excludes, &$harvestCache) {
       $dataset_key = $dataset['id'];
@@ -125,17 +126,16 @@ function _dkan_harvest_ckan_cache_json(array $data, HarvestSource $source, $harv
       // excluding criteria.
       $accept = TRUE;
       foreach ($excludes as $exclude => $value) {
-        
-        dsm($exclude);
-        
-        if (!empty($dataset[$exclude]) && count(array_intersect((array) $value, (array) $dataset[$exclude])) > 0) {
+
+        if (!empty($dataset[$exclude]) && count(array_intersect((array) $value,
+            (array) $dataset[$exclude])) > 0) {
           // The value to exclude is an array and does intersect with the dataset value. Drop.
           $accept = FALSE;
         }
 
         if (!$accept) {
-          // Dataset have at least one exclude criterion that matchs. No need for more
-          // proccecing.
+          // Dataset have at least one exclude criterion that matchs.
+          // No need for more proccecing.
           break;
         }
       }
