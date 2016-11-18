@@ -115,7 +115,7 @@ class HarvestMigrationCKAN extends HarvestMigration {
       foreach ($row->extras as $extra) {
         if ($extra->value != '') {
           $row->additional_info_keys[] = $extra->key;
-          $row->additional_info_values[] = $extra->value;
+          $row->additional_info_values[] = substr($extra->value,0,255);
         }
       }
     }
