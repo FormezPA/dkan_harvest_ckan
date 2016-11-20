@@ -5,6 +5,8 @@
  *
  * Migration File for DKAN Harvest of CKAN file from
  *    /api/3/action/current_package_list_with_resources.
+ *    or
+ *    /api/3/action/package_list.
  */
 
 /**
@@ -30,12 +32,19 @@ class HarvestMigrationCKAN extends HarvestMigration {
             $this->getCkanDatasetFields(),
             $this->sourceListOptions
     );
+    
+    /*
+    $this->highwaterField = array(
+      'name' => 'metadata_modified',
+      'alias' => 'w',  
+    );
+    */
   }
 
   /**
    * {@inheritdoc}
    */
-  public function setFieldMappings($version = '') {
+  public function setFieldMappings() {
     parent::setFieldMappings();
 
     $this->addFieldMapping('uuid', 'id');
@@ -103,9 +112,11 @@ class HarvestMigrationCKAN extends HarvestMigration {
    */
   public function prepareRow($row) {
     parent::prepareRow($row);
-
-    foreach ($row->tags as $tag) {
-      $row->_tags[] = (isset($tag->name)) ? $tag->name : $tag;
+    
+    if(is_array($row->tags)){
+      foreach ($row->tags as $tag) {
+        $row->_tags[] = (isset($tag->name)) ? $tag->name : $tag;
+      }
     }
 
     $row->additional_info_keys = array();
@@ -123,6 +134,7 @@ class HarvestMigrationCKAN extends HarvestMigration {
       unset($row->additional_info_keys);
       unset($row->additional_info_values);
     }
+    
   }
 
   /**
@@ -130,12 +142,13 @@ class HarvestMigrationCKAN extends HarvestMigration {
    */
   public function prepare($dataset_prepare, $row) {
     parent::prepare($dataset_prepare, $row);
-
+    
     // Prepare group data.
     $row->group = $this->prepareRowGroup($row->organization);
 
     // Prepare resources data.
     $row->resources = $this->prepareRowResources($row->resources);
+    
   }
 
   /**
@@ -153,6 +166,9 @@ class HarvestMigrationCKAN extends HarvestMigration {
 
     // dsm($resources_row_data);
     foreach ($resources_row_data as $resource_row_data) {
+      
+      $resource_row_data->url=str_replace(" ", "%20", $resource_row_data->url);
+      
       $resource = $this->prepareResourceHelper(
               $resource_row_data->url, $resource_row_data->format, $resource_row_data->name, NULL, $resource_row_data->description
       );
@@ -181,5 +197,64 @@ class HarvestMigrationCKAN extends HarvestMigration {
 
     return $group;
   }
+  
+}
 
+
+
+class HarvestMigrationCKANPackages extends HarvestMigrationCKAN {
+  
+  public $itemUrl;
+
+  /**
+   * Constructor.
+   */
+  public function __construct($arguments) {
+    
+    parent::__construct($arguments);
+    $this->itemUrl = str_replace("/package_list", '/' , $arguments['dkan_harvest_source']->uri)
+            . 'package_show?id=:id';
+    
+    $this->source = new MigrateSourceList(
+            new HarvestList($this->dkanHarvestSource->getCacheDir()),
+            new CKANItemJSON($this->itemUrl),
+            $this->getCkanDatasetFields(),
+            $this->sourceListOptions
+    );
+    
+  }
+}
+
+
+class HarvestMigrationCKANDataset extends HarvestMigrationCKAN {
+  
+  public $itemUrl;
+
+  /**
+   * Constructor.
+   */
+  public function __construct($arguments) {
+    
+    parent::__construct($arguments);
+    $this->itemUrl = $arguments['dkan_harvest_source']->uri . '/:id';
+    
+    $this->source = new MigrateSourceList(
+            new HarvestList($this->dkanHarvestSource->getCacheDir()),
+            new MigrateItemJSON($this->itemUrl),
+            $this->getCkanDatasetFields(),
+            $this->sourceListOptions
+    );
+  }
+  
+  /**
+   * Implements prepareRow.
+   */
+  public function prepareRow($row) {
+    parent::prepareRow($row);
+
+    // Fallback for the "title" on "name" (E.g. INPS)
+    if(!isset($row->title)){
+      $row->title = $row->name;
+    }
+  }
 }
