@@ -26,7 +26,7 @@ class HarvestMigrationCKAN extends HarvestMigration {
     $this->itemUrl = drupal_realpath($this->dkanHarvestSource->getCacheDir()) .
             '/:id';
 
-    $this->source = new MigrateSourceList(
+    $this->source = new HarvestMigrateSourceList(
             new HarvestList($this->dkanHarvestSource->getCacheDir()),
             new MigrateItemJSON($this->itemUrl),
             $this->getCkanDatasetFields(),
@@ -215,7 +215,7 @@ class HarvestMigrationCKANPackages extends HarvestMigrationCKAN {
     $this->itemUrl = str_replace("/package_list", '/' , $arguments['dkan_harvest_source']->uri)
             . 'package_show?id=:id';
     
-    $this->source = new MigrateSourceList(
+    $this->source = new HarvestMigrateSourceList(
             new HarvestList($this->dkanHarvestSource->getCacheDir()),
             new CKANItemJSON($this->itemUrl),
             $this->getCkanDatasetFields(),
@@ -238,7 +238,7 @@ class HarvestMigrationCKANDataset extends HarvestMigrationCKAN {
     parent::__construct($arguments);
     $this->itemUrl = $arguments['dkan_harvest_source']->uri . '/:id';
     
-    $this->source = new MigrateSourceList(
+    $this->source = new HarvestMigrateSourceList(
             new HarvestList($this->dkanHarvestSource->getCacheDir()),
             new MigrateItemJSON($this->itemUrl),
             $this->getCkanDatasetFields(),
