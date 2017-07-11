@@ -116,7 +116,7 @@ class HarvestMigrationCKAN extends HarvestMigration {
 			  $row->type, 
 			  WATCHDOG_INFO
       );
-      return false;
+      return FALSE;
     }
     
     // Soft truncate the title
