@@ -108,16 +108,16 @@ class HarvestMigrationCKAN extends HarvestMigration {
   public function prepareRow($row) {
     parent::prepareRow($row);
     
-    if(isset($row->type) && $row->type != 'dataset') {
-		  watchdog(
-		  	'dkan_harvest_ckan', 
-		  	'Dataset with type other from "dataset" - record id %id', 
-		  	array('%id'=>$row->id), 
-		  	$row->type, 
-		  	WATCHDOG_INFO
-		  );
-		  return false;
-		}
+    if(isset($row->type) && strtolower($row->type) != 'dataset') {
+      watchdog(
+			  'dkan_harvest_ckan', 
+			  'Dataset with type other from "dataset" - record id %id', 
+			  array('%id'=>$row->id), 
+			  $row->type, 
+			  WATCHDOG_INFO
+      );
+      return false;
+    }
     
     // Soft truncate the title
     if(strlen($row->title) > 255){
