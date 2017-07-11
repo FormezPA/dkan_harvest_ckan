@@ -110,7 +110,7 @@ class HarvestMigrationCKAN extends HarvestMigration {
     
     if(isset($row->type) && $row->type != 'dataset') {
       watchdog('dkan_harvest_ckan', 
-  	    ('Dataset with type other from "dataset" - record id @id', array('id'=>$row->id)), $row->type, WATCHDOG_INFO);
+  	    t('Dataset with type other from "dataset" - record id @id', array('@id'=>$row->id)), $row->type, WATCHDOG_INFO);
       return false;
     }
     
